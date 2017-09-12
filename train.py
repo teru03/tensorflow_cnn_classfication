@@ -85,7 +85,11 @@ saver = tf.train.Saver()
 # Start TensorFlow Session.
 # ----------------------------------------------------------
 with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
+    if os.path.exists(CHECKPOINTS_DIR):
+        saver.restore(sess, CHECKPOINTS_DIR + '/model-last')
+    else:
+        sess.run(tf.initialize_all_variables())
+
     writer = tf.summary.FileWriter(SUMMARY_LOG_DIR, sess.graph_def)
 
     train_x_length = len(train_x)

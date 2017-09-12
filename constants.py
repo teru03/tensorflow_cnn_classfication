@@ -1,7 +1,7 @@
 NUM_TESTS         = 50
 NUM_CLASSES       = 9
 #NUM_EPOCHS        = 2
-NUM_EPOCHS        = 1000
+NUM_EPOCHS        = 2000
 NUM_MINI_BATCH    = 100
 #EMBEDDING_SIZE    = 128
 #NUM_FILTERS       = 128

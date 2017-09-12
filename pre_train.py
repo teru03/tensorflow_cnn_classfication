@@ -62,6 +62,9 @@ class pre_train:
 
         connector.close()
 
+    def chunked(self, text, n):
+        return [ text[x:x+n] for x in range(0,len(text),n)]
+
     def tagger(self):
 
         #TAGDIRにはTreeTaggerをインストールしたディレクトリを指定。
@@ -89,16 +92,17 @@ class pre_train:
             ID = row[0]
 
             if( len(row[1]) >= 300000 ):
-                data=row[1][:30000]
+                datas=self.chunked(row[1], 200000)
             else:
-                data=row[1]
+                datas=[row[1]]
 
-            tags = tagger.TagText(data)#解析したいテキストを引数に
-            for tag in tags:
-               tagary = tag.split('\t')
-               if( len(tagary) == 3 ):
-                   val=(ID,tagary[0],tagary[1],tagary[2])
-                   c.execute(insert_sql,val)
+            for data in datas:
+               tags = tagger.TagText(data)#解析したいテキストを引数に
+               for tag in tags:
+                   tagary = tag.split('\t')
+                   if( len(tagary) == 3 ):
+                       val=(ID,tagary[0],tagary[1],tagary[2])
+                       c.execute(insert_sql,val)
 
             connector.commit()
 

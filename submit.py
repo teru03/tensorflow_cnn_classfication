@@ -8,6 +8,7 @@ from constants import *
 from datetime import datetime
 from data_helper import log
 import tensorflow as tf
+import MeCab
 import sqlite3
 import data_helper
 import csv
@@ -37,49 +38,29 @@ if __name__ == '__main__':
     print('--start')
 
     dmyx, dmyy, d = data_helper.load_data_and_labels_and_dictionaries()
-    if os.path.exists(TESTDATA_FILE) :
-        print "load data"
-        testdata    = numpy.load(TESTDATA_FILE)
-        x_dim = len(testdata[0])
-        print "x_dim ",x_dim
-
-    else :
-
-        dictionaries_inv = { c: i for i, c in enumerate(d) }
+    dictionaries_inv = { c: i for i, c in enumerate(d) }
     
-        connector = sqlite3.connect("./cancer_test.db")
-        connector.text_factory = str
-        c = connector.cursor()
-    
-        select_sql = "select ID, group_concat(word,' ') from vocab "
-        select_sql = select_sql + " where pos not in( ')', '(', ',', 'SENT','IN', 'IN/that' )"
-        select_sql = select_sql + " group by ID order by ID;"
+    test_t_df = pd.read_csv('./test_text',sep='\|\|',
+                    skiprows=1,engine='python',names=["ID","text"])
 
-        c.execute(select_sql)
-        result = c.fetchall()
-
-        contents = []
-        for row in result:
-            content = row[1].split()
-            contents.append(content)
-
-        connector.close()
+    contents = []
+    for i in xrange(len(test_t_df['ID'].values)):
+        contents.append(cleanup(test_t_df['text'][i]))
         
-        x_dim =  max([ len(c) for c in contents ])
-        print 'x_dim',x_dim
-        contents = padding(contents, max([ len(c) for c in contents ]))
+    x_dim =  max([ len(c) for c in contents ])
+    print 'x_dim',x_dim
+    contents = padding(contents, max([ len(c) for c in contents ]))
 
-        x_test = []
-        for content in contents:
-            inv_d = []
-            for word in content:
-                if dictionaries_inv.has_key(word):
-                    inv_d.append(dictionaries_inv[word])    
-                else:
-                    inv_d.append(dictionaries_inv['<PAD/>'])
-            x_test.append(inv_d)
-        testdata = numpy.array(x_test)
-        numpy.save(TESTDATA_FILE,testdata)
+    x_test = []
+    for content in contents:
+        inv_d = []
+        for word in content:
+            if dictionaries_inv.has_key(word):
+                inv_d.append(dictionaries_inv[word])    
+            else:
+                inv_d.append(dictionaries_inv['<PAD/>'])
+        x_test.append(inv_d)
+    
 
     keep = tf.placeholder(tf.float32)
     input_x = tf.placeholder(tf.int32,   [ None, x_dim ])
@@ -99,7 +80,8 @@ if __name__ == '__main__':
             c2 = tf.nn.max_pool(c1, [ 1, x_dim - filter_size + 1, 1, 1 ], [ 1, 1, 1, 1 ], 'VALID')
             p_array.append(c2)
 
-    p = tf.concat(p_array,3)
+    p = tf.concat(3, p_array)
+
 
     with tf.name_scope('fc'):
         total_filters = NUM_FILTERS * len(FILTER_SIZES)
@@ -114,36 +96,15 @@ if __name__ == '__main__':
 
     saver = tf.train.Saver()
 
-    sess.run(tf.global_variables_initializer)
+    sess.run(tf.initialize_all_variables())
     saver.restore(sess, CHECKPOINTS_DIR + '/model-last')
 
-    datalen = len(testdata)
-    divn = 50
-    print "datalen = %d divn + %d"%(datalen,divn)
-    allpred = []
-    for i in xrange(int(datalen/divn)):
-        print "pred no %d - %d"%(i*divn,(i+1)*divn)
-
-        xdata = testdata[i*divn:(i+1)*divn]
-        #print "len = %d"%len(xdata)
-        #print xdata
-        predictions = sess.run(
-            predict_y,
-            feed_dict={ input_x: xdata, keep:1.0}
-        )
-        allpred.extend(predictions)
-
-    remain = datalen%divn
-    print "pred remain %d %d"%(remain,(datalen-remain))
-
-    xdata = testdata[datalen-remain:]
     predictions = sess.run(
         predict_y,
-        feed_dict={ input_x: xdata, keep:1.0}
+        feed_dict={ input_x: x_test, keep:1.0}
     )
-    allpred.extend(predictions)
 
-    with open('submit.csv', 'wt') as outf:
+    with open('submissionFile.csv', 'wt') as outf:
         fo = csv.writer(outf, lineterminator='\n')
         title = ['ID','class1','class2','class3','class4','class5','class6','class7','class8','class9']
         fo.writerow(title)

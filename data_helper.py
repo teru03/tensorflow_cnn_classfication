@@ -6,7 +6,20 @@ from collections import Counter
 from constants import *
 from datetime import datetime
 import sqlite3
-from pre_train import pre_train
+import nltk
+from nltk.corpus import stopwords
+import pandas as pd
+import re
+
+
+def cleanup(text):
+    stop_words = set(stopwords.words('english'))
+    letters_only = re.sub("[^a-zA-Z]", " ", text)
+    words = letters_only.lower().split()
+    text = [ word for word in words if not word in stop_words]
+    #words = text.lower().split()
+    #text = [ word.lower() for word in words if not "0xe2"]
+    return text
 
 def one_hot_vec(index):
     v = numpy.zeros(NUM_CLASSES)
@@ -33,24 +46,23 @@ def load_data_and_labels_and_dictionaries():
         print labels
         return [ data, labels, dictionaries ]
 
-    connector = sqlite3.connect("cancer_train.db")
-    connector.text_factory = str
-    c = connector.cursor()
+    nltk.download("stopwords")
+
+    train_v_df = pd.read_csv('./input/training_variants.csv')
+    train_t_df = pd.read_csv('./input/training_text',sep='\|\|',
+                    skiprows=1,engine='python',names=["ID","text"])
+#    test_t_df = pd.read_csv('./input/test_text',sep='\|\|',
+#                    skiprows=1,engine='python',names=["ID","text"])
     
-    select_sql = "select A.ID, group_concat(A.word,' '), B.Class from vocab A, cancer_class B "
-    select_sql = select_sql + "where A.ID= B.ID and A.pos not in( ')','(',',','SENT','IN', 'IN/that' ) "
-    select_sql = select_sql + "group by A.ID order by Class,A.ID;"
-
-    c.execute(select_sql)
-    result = c.fetchall()
-
     contents = []
     labels = []
-    for row in result:
-        contents.append(row[1].split())
-        labels.append(one_hot_vec(int(row[2])))
-        
-    connector.close()
+    for i in xrange(len(train_t_df['ID'].values)):
+        contents.append(cleanup(train_t_df['text'][i]))
+        labels.append(one_hot_vec(train_v_df['Class'][i]))
+                      
+#    for i in xrange(len(test_t_df['ID'].values)):
+#        contents.append(cleanup(test_t_df['text'][i]))
+                      
     
     print max([ len(c) for c in contents ])
     contents = padding(contents, max([ len(c) for c in contents ]))

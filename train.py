@@ -44,8 +44,7 @@ for filter_size in FILTER_SIZES:
         c2 = tf.nn.max_pool(c1, [ 1, x_dim - filter_size + 1, 1, 1 ], [ 1, 1, 1, 1 ], 'VALID')
         p_array.append(c2)
 
-#p = tf.concat(3, p_array)
-p = tf.concat(p_array,3)
+p = tf.concat(3, p_array)
 
 # Define output layer (Fully-connected layer).
 with tf.name_scope('fc'):
@@ -59,7 +58,7 @@ with tf.name_scope('fc'):
 # Create optimizer.
 # ----------------------------------------------------------
 # Use cross entropy for softmax as a cost function.
-xentropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=predict_y, logits=input_y))
+xentropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(predict_y, input_y))
 
 # Add L2 regularization term in order to avoid overfitting.
 loss = xentropy + L2_LAMBDA * tf.nn.l2_loss(w)
@@ -74,10 +73,10 @@ train = tf.train.AdamOptimizer(0.0001).minimize(loss, global_step=global_step)
 predict  = tf.equal(tf.argmax(predict_y, 1), tf.argmax(input_y, 1))
 accuracy = tf.reduce_mean(tf.cast(predict, tf.float32))
 
-loss_sum   = tf.summary.scalar('train loss', loss)
-accr_sum   = tf.summary.scalar('train accuracy', accuracy)
-t_loss_sum = tf.summary.scalar('general loss', loss)
-t_accr_sum = tf.summary.scalar('general accuracy', accuracy)
+loss_sum   = tf.scalar_summary('train loss', loss)
+accr_sum   = tf.scalar_summary('train accuracy', accuracy)
+t_loss_sum = tf.scalar_summary('general loss', loss)
+t_accr_sum = tf.scalar_summary('general accuracy', accuracy)
 
 saver = tf.train.Saver()
 
@@ -85,12 +84,8 @@ saver = tf.train.Saver()
 # Start TensorFlow Session.
 # ----------------------------------------------------------
 with tf.Session() as sess:
-    if os.path.exists(CHECKPOINTS_DIR):
-        saver.restore(sess, CHECKPOINTS_DIR + '/model-last')
-    else:
-        sess.run(tf.initialize_all_variables())
-
-    writer = tf.summary.FileWriter(SUMMARY_LOG_DIR, sess.graph_def)
+    sess.run(tf.initialize_all_variables())
+    writer = tf.train.SummaryWriter(SUMMARY_LOG_DIR, sess.graph_def)
 
     train_x_length = len(train_x)
     batch_count = int(train_x_length / NUM_MINI_BATCH) + 1
